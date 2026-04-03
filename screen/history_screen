@@ -1,0 +1,145 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '/services/checkin_service.dart'; 
+
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  List<Map<String, dynamic>> history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadHistory();
+  }
+
+  Future<void> loadHistory() async {
+    final data = await CheckInService.getHistory();
+    setState(() {
+      history = data;
+    });
+  }
+
+  List<Marker> _buildHistoryMarkers() {
+    return history
+        .where((item) => item['latitude'] != null && item['longitude'] != null)
+        .map((item) {
+          final latitude = item['latitude'];
+          final longitude = item['longitude'];
+
+          if (latitude is num && longitude is num) {
+            return Marker(
+              point: LatLng(latitude.toDouble(), longitude.toDouble()),
+              width: 40,
+              height: 40,
+              child: const Icon(
+                Icons.location_on,
+                color: Colors.red,
+                size: 32,
+              ),
+            );
+          }
+
+          throw Exception('Invalid latitude/longitude value in history entry.');
+        })
+        .toList();
+  }
+
+  LatLng _historyMapCenter() {
+    final markers = _buildHistoryMarkers();
+    if (markers.isNotEmpty) {
+      return markers.first.point;
+    }
+    return const LatLng(1.533161, 103.679852);
+  }
+
+  String _formatDistance(dynamic distance) {
+    if (distance == null) return 'Unknown distance';
+    double? value;
+    if (distance is String) {
+      value = double.tryParse(distance);
+    } else if (distance is num) {
+      value = distance.toDouble();
+    }
+    if (value == null) return 'Unknown distance';
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(1)} km';
+    }
+    return '${value.toStringAsFixed(0)} m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final markers = _buildHistoryMarkers();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Check-In History"),
+      ),
+      body: history.isEmpty
+          ? const Center(child: Text("No check-in history yet."))
+          : Column(
+              children: [
+                Container(
+                  height: 220,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade100),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: _historyMapCenter(),
+                        initialZoom: 13.0,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                          userAgentPackageName:
+                              'com.example.internship_prog2033',
+                        ),
+                        if (markers.isNotEmpty)
+                          MarkerLayer(markers: markers),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: history.length,
+                    itemBuilder: (context, index) {
+                      final item = history[index];
+                      final landmark = item['landmark'] ?? 'Unknown landmark';
+                      final distance = item['distance'];
+                      final status = item['status'] ?? 'Unknown status';
+                      return ListTile(
+                        leading: const Icon(Icons.location_on, color: Colors.blue),
+                        title: Text(item['location'] ?? 'Unknown location'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(item['time'] ?? 'Unknown time'),
+                            Text('Landmark: $landmark'),
+                            Text('Distance: ${_formatDistance(distance)}'),
+                            Text('Status: $status'),
+                          ],
+                        ),
+                        isThreeLine: true,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
