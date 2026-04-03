@@ -25,10 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> nearbyLandmarks = [];
   final MapController _mapController = MapController();
 
-  // 1. 定义打卡允许的半径
+  // 1. Define the allowed check-in radius
   static const double allowedRadius = 500;
 
-  // 2. 定义多个可以在地图上点击的地标列表
+  // 2. Define a list of clickable landmarks on the map
   final List<Map<String, dynamic>> availableTargets = [
     {
       'name': 'Campus Main Gate',
@@ -40,11 +40,14 @@ class _HomeScreenState extends State<HomeScreen> {
       'lat': 1.5158,
       'lng': 103.6841,
     },
-    // 你可以在这里继续添加更多地标
-    // {'name': 'AEON Taman Universiti', 'lat': 1.5422, 'lng': 103.6300},
+    {
+      'name': 'Petron Bandar Seri Alam',
+      'lat': 1.5078,
+      'lng': 103.8592,
+    },
   ];
 
-  // 3. 当前选中的目标地点（默认选中第一个：Campus Main Gate）
+  // 3. Currently selected target location (default is first: Campus Main Gate)
   late String selectedTargetName;
   late double targetLat;
   late double targetLng;
@@ -52,14 +55,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // 初始化默认目标
+    // Initialize default target
     selectedTargetName = availableTargets[0]['name'];
     targetLat = availableTargets[0]['lat'];
     targetLng = availableTargets[0]['lng'];
     _getLocation();
   }
 
-  // 4. 新增：处理点击地图上的地标
+  // 4. Handle target selection from the map
   void _selectTarget(Map<String, dynamic> target) {
     setState(() {
       selectedTargetName = target['name'];
@@ -67,17 +70,17 @@ class _HomeScreenState extends State<HomeScreen> {
       targetLng = target['lng'];
     });
 
-    // 重新计算与新目标的距离和状态
+    // Recompute distance and status for the new target
     _calculateDistanceAndStatus();
 
-    // 可选：点击地标后将视角移动到该地标
+    // Optional: move camera to the tapped target location
     _mapController.move(LatLng(targetLat, targetLng), 14.0);
 
-    // 弹出提示框告知用户切换了目标
+    // Show a message to inform the user the target has switched
     if (locationStatus == 'Outside allowed area') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("已切换至 $selectedTargetName，但距离太远，无法打卡！"),
+          content: Text("Switched to $selectedTargetName, but you are too far to check-in!"),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
         ),
@@ -85,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("已切换至 $selectedTargetName，在允许范围内！"),
+          content: Text("Switched to $selectedTargetName and within allowed range!"),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -93,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 抽出计算距离的逻辑，方便在获取位置和点击地标时重复调用
+  // Extract distance calculation logic for reuse in location updates and target selection
   void _calculateDistanceAndStatus() {
     if (currentLatitude != null && currentLongitude != null) {
       final distance = Geolocator.distanceBetween(
@@ -157,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // 检查状态，如果不允许则直接拒绝并提示
+    // Check status; if not allowed, reject and show notification
     if (locationStatus == 'Outside allowed area') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -167,10 +170,10 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.red,
         ),
       );
-      return; // 终止执行
+      return; // End execution
     }
 
-    // 状态是成功的逻辑
+    // Success path logic
     await CheckInService.addCheckIn(
       locationText,
       landmark: currentLandmark.isNotEmpty ? currentLandmark : selectedTargetName,
@@ -282,13 +285,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                         userAgentPackageName: 'com.example.internship_prog2033',
                       ),
-                      // 5. 目标区域的圆圈（现在会随着选中的目标移动）
+                      // 5. Target area circle (moves with selected target)
                       CircleLayer(
                         circles: [
                           CircleMarker(
                             point: LatLng(targetLat, targetLng),
                             radius: allowedRadius,
-                            useRadiusInMeter: true, // 确保半径单位是米
+                            useRadiusInMeter: true, // Ensure radius is in meters
                             color: Colors.blue.withOpacity(0.2),
                             borderStrokeWidth: 2,
                             borderColor: Colors.blue,
@@ -297,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       MarkerLayer(
                         markers: [
-                          // 用户当前位置的 Marker
+                          // Marker for the user's current position
                           Marker(
                             point: LatLng(currentLatitude!, currentLongitude!),
                             width: 60,
@@ -308,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               size: 50,
                             ),
                           ),
-                          // 6. 循环生成可选地标的 Marker，并加上点击事件
+                          // 6. Generate selectable landmark markers with tap actions
                           ...availableTargets.map((target) {
                             bool isSelected = target['name'] == selectedTargetName;
                             return Marker(
@@ -316,13 +319,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 100,
                               height: 80,
                               child: GestureDetector(
-                                onTap: () => _selectTarget(target), // 点击触发切换
+                                onTap: () => _selectTarget(target), // Tap to select target
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.location_on,
-                                      // 如果被选中，显示橙色并放大，否则显示灰色
+                                      // If selected, show orange and bigger; otherwise gray and smaller
                                       color: isSelected ? Colors.orange : Colors.grey.shade700,
                                       size: isSelected ? 40 : 30,
                                     ),
@@ -368,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // UI 显示当前正在打卡的“目标”
+                  // UI shows the currently checked-in target
                   Text(
                     'Selected Target: $selectedTargetName',
                     textAlign: TextAlign.center,
